@@ -1,0 +1,708 @@
+---
+title: |
+  <div class="tight-title">
+    <div>ECOM30004/90004</div>
+    <div>Time Series Analysis and Forecasting</div>
+     <div class="spacer"></div> <!-- blank line -->
+    <div class="bold">Tutorial 6</div>
+
+    <div class="spacer"></div> <!-- blank line -->
+
+    <div class="author">Tutor: Pengyun (Kevin) Chen</div>
+    <div class="author">University of Melbourne</div>
+    <div class="author">Semester 2, 2026</div>
+  </div>
+
+  
+format:
+  revealjs:
+    theme: simple
+    self-contained: true
+    chalkboard: false
+    width: 1300
+    height: 950
+    footer: 'Access Slides: `pengyunc.github.io/TSAF_Week6`'
+    title-slide-attributes:
+      data-background-color: "#000F46"
+    slide-number: true
+    center-title-slide: true
+    toc: false
+    css: styles.css
+    callout-appearance: simple
+    background-transition: fade
+    callout-icon: true
+    transition: slide
+    scrollable: true
+    code-block-height: 800px
+    code-line-numbers: true
+    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+    html-math-method: mathjax
+    execute:
+      echo: true
+      eval: true
+      enabled: true
+---
+
+## Notice
+
+::: {.callout-warning title="Conditions of Use"}
+
+- This document is intended for personal use and is NOT meant to be shared on the internet (e.g. Studocu, ThinkSwap, StudentVIP, Coursehero, etc.)
+- Do not share this document with anyone, even if they are enrolled in ECOM30004/90004.
+- Official course materials, such as lecture slides, tutorial sheets and prescribed readings should always be your primary point of reference.
+
+:::
+<div style="height: 0.2em;"></div>
+Slides accessible here: `pengyunc.github.io/TSAF_Week6`
+
+
+## This tutorial
+<blue>In this tutorial, we demonstrate forecasting the 2020Q1 CPI level, including stationarity tests, ARIMA model selection, and the final forecast computation.</blue>
+
+<div style="height: 0.2em;"></div>
+:::{.callout-note title = "Agenda"}
+
+- <blue>Exercise 1(a):</blue> Transform CPI levels into log differences and select the ADF specification (lags).
+
+- <blue>Exercise 1(b):</blue> Test the log-differenced series for a unit root (ADF).
+
+- <blue>Exercise 1(c):</blue> Select the ARIMA model using AICc and Ljung–Box diagnostics.
+
+- <blue>Exercise 1(d):</blue> Forecast 2020Q1 inflation and the CPI level.
+
+- <blue>Exercise 2:</blue> Explain why first differencing removes a linear trend.
+:::
+
+<div style="height: 0.2em;"></div>
+
+
+
+## We know that taking the logs is not enough... {auto-animate="true"}
+Recall the unit root test results for log `CPI` from Self-directed Activities 5.
+```{r}
+dt <- read.csv("CPI.csv")
+Y <- ts(log(dt$CPI), start = c(1922,2), end = c(2025,2), frequency=4)
+Y <- window(Y, start = c(1946,1), end = c(2019,4))
+```
+
+<div class="horizontal-line"></div>
+```{r}
+plot(Y)
+```
+
+An upward trend is obvious <blue>$\to$ add a time trend in deterministic specification<blue>
+
+## We know that taking the logs is not enough... {auto-animate="true"}
+:::{.callout-question}
+Carry out an ADF test of `Y`, present (i) the estimated test equation, 
+(ii) the $t_{\text{ADF}}$ test statistic, 5\% critical value and decision, and (iii) its $p$-value.
+:::
+<div style="height: 0.5em;"></div>
+
+```{r}
+library(urca)    # For use of ur.df function
+adf <- ur.df(Y, type = "trend", selectlags = "AIC")
+p_adf <- punitroot(adf@teststat[1], trend = "ct", statistic = "t")
+```
+<div style="height: 0.5em;"></div>
+::: {.panel-tabset}
+
+## (i) test equation
+The test equation is:
+$$\Delta Y_{t}=\beta_{0}+\beta_{1}t+\varphi Y_{t-1}+\sum^{p-1}_{k=1}\psi_{k} \Delta Y_{t-k}+U_{t}$$
+The hypotheses are:
+\begin{align}
+H_{0}:&\;\varphi=0& &\text{($Y_{t}$ has a unit root)}\\
+H_{1}:&\;\varphi<0& &\text{($Y_{t}$ does not have a unit root)}
+\end{align}
+The number of lags of $\Delta Y_{t}$ (i.e., $p-1$) is selected by an information criterion (AIC), where $p$ is the order of the underlying AR model.
+
+## (ii) test summary
+```{r}
+summary(adf)
+```
+
+## (iii) $p$-value
+```{r}
+print(p_adf)
+```
+<div style="height: 0.5em;"></div>
+Since $p=0.997>0.05$, we <teal>**fail to reject** the null hypothesis $H_{0}$: there is unit root</teal>.
+<div style="height: 0.5em;"></div>
+
+<blue>$\implies$ Simply removing the trend component is not enough to make $Y_{t}$ stationary. </blue>
+
+<blue>$\implies$ We need to take the first difference of log `CPI`.</blue>
+:::
+
+## Exercise 1(a)
+:::{.callout-question}
+Next create the first difference time series $\Delta Y_{t}$ and a time series plot. Decide whether a trend is required for a unit root test for $\Delta Y_{t}$. 
+:::
+
+<div style="height: 0.5em;"></div>
+
+```{r}
+DY <- diff(Y)   # DY is the log difference of the CPI -> Inflation
+plot(DY)
+```
+<blue>**Observation:** There is no evidence of a linear trend in this time series.</blue> There are some extended periods (e.g. early 1950's and 1970-80's) when inflation was higher.
+
+## Exercise 1(b)  {auto-animate="true"}
+:::{.callout-question}
+Carry out the unit root test on $\Delta Y_{t}$. Conclude how many differences are required for log CPI to be stationary.
+:::
+
+<div style="height: 0.5em;"></div>
+
+```{r}
+adf <- ur.df(DY, type = "drift", selectlags = "AIC")
+p_adf <- punitroot(adf@teststat[1], trend = "c", statistic = "t")
+summary(adf)
+```
+<div class="horizontal-line"></div>
+The estimated ADF test equation is:
+
+$$\widehat{\Delta(\Delta Y_{t})}=0.0031-0.258\Delta Y_{t-1}-0.4253\Delta(\Delta Y_{t-1})$$
+
+## Exercise 1(b)  {auto-animate="true"}
+:::{.callout-question}
+Carry out the unit root test on $\Delta Y_{t}$. Conclude how many differences are required for log CPI to be stationary.
+:::
+
+<div style="height: 0.5em;"></div>
+
+```{r}
+adf <- ur.df(DY, type = "drift", selectlags = "AIC")
+p_adf <- punitroot(adf@teststat[1], trend = "c", statistic = "t")
+summary(adf)
+```
+<div class="horizontal-line"></div>
+The $t$-statistic is $-5.1529$, and the $5\%$ critical value is $-2.87$.
+
+<blue>Since $-5.1539<-2.87$, we **reject** $H_0$: $\Delta Y_{t}$ has a unit root.</blue>
+
+
+## Exercise 1(b)  {auto-animate="true"}
+:::{.callout-question}
+Carry out the unit root test on $\Delta Y_{t}$. Conclude how many differences are required for log CPI to be stationary.
+:::
+
+<div style="height: 0.5em;"></div>
+
+```{r eval=FALSE}
+adf <- ur.df(DY, type = "drift", selectlags = "AIC")
+p_adf <- punitroot(adf@teststat[1], trend = "c", statistic = "t")
+summary(adf)
+```
+<div style="height: 0.5em;"></div>
+
+The $t$-statistic is $-5.1529$, and the $5\%$ critical value is $-2.87$.
+
+Since $-5.1539<-2.87$, we **reject** $H_0$: $\Delta Y_{t}$ has a unit root.
+
+::: {.fragment}
+<div class="horizontal-line"></div>
+```{r}
+print(p_adf)
+```
+<div style="height: 0.5em;"></div>
+<teal>Alternatively, since $p=9.82\times 10^{-6}<0.05$, we **reject $H_0$: $\Delta Y_{t}$ has a unit root**.</teal>
+:::
+
+:::{.fragment}
+<div class="horizontal-line"></div>
+<blue>**Conclusion:** To render log CPI stationary, it is necessary to difference the series *once*.</blue>
+:::
+
+
+## Exercise 1(c)  {auto-animate="true"}
+:::{.callout-question}
+Specify and estimate an appropriate ARIMA($p,d,q$) model for $Y_{t}$.
+:::
+<div style="height: 0.5em;"></div>
+:::{.callout-tip}
+- Since first differencing is required for log CPI to be stationary, we need $d=1$.
+- How to select $(p,q)$? <green>$\to$ Conduct a grid search for $p=0,\dots,4$ and $q=0,\dots,4$</green>
+:::
+
+<div class="horizontal-line"></div>
+:::{.callout-note title="Code Structure"}
+- Set up container matrices for AICc values (`AICc`) and Ljung-Box test $p$-values (`LBp`)
+
+- For each $(p,q)$ combination:
+  - Fit the ARIMA($p,1,q$) model with `Arima()` function, and extract AICc
+  
+  - Extract the Ljung-Box $p$-values with `checkresiduals()` function
+  
+- Choose the model with the **lowest** AICc, and verify that its <teal>Ljung-Box $H_{0}$ (no autocorrelation)</teal> is not rejected.
+
+:::
+
+
+## Exercise 1(c)  {auto-animate="true"}
+:::{.callout-question}
+Specify and estimate an appropriate ARIMA($p,d,q$) model for $Y_{t}$.
+:::
+<div style="height: 0.5em;"></div>
+:::{.callout-tip}
+- Since first differencing is required for log CPI to be stationary, we need $d=1$.
+- How to select $(p,q)$? <green>$\to$ Conduct a grid search for $p=0,\dots,4$ and $q=0,\dots,4$</green>
+:::
+
+
+```{r}
+library(forecast)
+
+pmax <- 4
+qmax <- 4
+LBp <- matrix(nrow=pmax+1, ncol=qmax+1)
+rownames(LBp) <- paste0("p=", 0:pmax)
+colnames(LBp) <- paste0("q=", 0:qmax)
+AICc <- LBp
+
+for (p in 0:pmax){
+  for (q in 0:qmax){
+    eq <- Arima(DY, order=c(p,0,q))
+    capture.output(LBp[p+1,q+1] <- checkresiduals(eq,
+      plot=FALSE)$p.value)
+    AICc[p+1,q+1] <- eq$aicc
+  }  
+}
+```
+
+
+## Exercise 1(c)  {auto-animate="true"}
+:::{.callout-question}
+Specify and estimate an appropriate ARIMA($p,d,q$) model for $Y_{t}$.
+:::
+<div style="height: 0.5em;"></div>
+
+Residual autocorrelation result (`=0` if $H_{0}$ maintained)
+```{r}
+print(1*(LBp<0.05))
+```
+<div style="height: 0.5em;"></div>
+
+Model to minimise AICc:
+```{r}
+print(AICc==min(AICc))
+```
+<div style="height: 0.5em;"></div>
+
+:::{.fragment}
+
+<blue>**Conclusion:** The chosen model is ARIMA($1,1,3$) for $Y_{t}$.</blue>
+:::
+
+
+## Exercise 1(d)  {auto-animate="true"}
+:::{.callout-question}
+<blue>Use the chosen model to calculate a forecast of inflation</blue> and the CPI for the March quarter of 2020.
+:::
+<div style="height: 0.5em;"></div>
+:::{.callout-tip}
+Note that we have selected ARMA(1,3) for $\Delta Y_{t}\equiv \Delta\log(CPI_{t})$ in Exercise 1(c).
+:::
+
+:::{.fragment}
+<div style="height: 0.1em;"></div>
+Forecast 2020Q1 inflation:  $\Delta{}Y_{2020Q1}=\log(CPI_{2020Q1})-\log(CPI_{2019Q4})$
+```{r}
+eq <- Arima(DY, order = c(1,0,3))
+ForecastInflation_2020q1 <- forecast(eq, h=1)$mean
+print(ForecastInflation_2020q1)
+```
+:::
+
+:::{.fragment}
+<div class="horizontal-line"></div>
+**The inflation forecast is based on an approximation…**
+
+Recall from Week 1 tutorial that for small $r$ values, $\log(1+r)\approx r$:
+\begin{align}
+CPI_{2019Q4}(1+\text{inflation}_{2020Q1})&=CPI_{2020Q1}\\
+\log(1+\text{inflation}_{2020Q1})&=\log(CPI_{2020Q1})-\log(CPI_{2019Q4})\\
+\implies\qquad \color{blue}{\text{inflation}_{2020Q1}}&\approx\log(CPI_{2020Q1})-\log(CPI_{2019Q4})
+\end{align}
+:::
+
+
+## Exercise 1(d)  {auto-animate="true"}
+:::{.callout-question}
+Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
+:::
+<div style="height: 0.5em;"></div>
+:::{.callout-tip}
+Note that we have selected ARMA(1,3) for $\Delta Y_{t}\equiv \Delta\log(CPI_{t})$ in Exercise 1(c).
+:::
+<div style="height: 0.1em;"></div>
+**How can we forecast the 2020Q1 CPI?**
+
+We know that
+\begin{align}
+\color{blue}{\text{inflation}_{2020Q1}}&\approx\log(CPI_{2020Q1})-\log(CPI_{2019Q4})
+\end{align}
+
+:::{.fragment}
+thus we have $\widehat{CPI}_{2020Q1}=CPI_{2019Q4}\times(1+\widehat{\operatorname{inflation}}_{2020Q1})$
+
+```{r}
+# Create a ts of CPI (i.e. not log CPI)
+CPI <- ts(dt$CPI, start=c(1922,2), end=c(2025,2), frequency=4)
+CPI_2019q4 <- CPI[which(time(CPI)==2019.75)]
+
+# Forecast CPI for 2020q1
+ForecastCPI_2020q1 <- CPI_2019q4*(1+ForecastInflation_2020q1)
+print(ForecastCPI_2020q1)
+```
+:::
+
+
+## Exercise 1(d)  {auto-animate="true"}
+:::{.callout-question}
+Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
+:::
+<div style="height: 0.5em;"></div>
+
+**How can we forecast the 2020Q1 CPI?**
+
+First approach: $\widehat{CPI}_{2020Q1}=CPI_{2019Q4}\times(1+\widehat{\operatorname{inflation}}_{2020Q1})$
+```{r echo=FALSE}
+print(ForecastCPI_2020q1)
+```
+<div class="horizontal-line"></div>
+
+:::{.fragment}
+<blue>Second approach:</blue>
+
+- Since we know that <blue>$\widehat{\log(CPI_{2020Q1})}=\log(CPI_{2019Q4})+\widehat{\text{inflation}}_{2020Q1}$</blue>
+- then we can just take the exponential of the logs:
+<blue>$$\widehat{CPI_{2020Q1}}=\exp(\widehat{\log(CPI_{2020Q1})})=\exp(\log(CPI_{2019Q4})+\widehat{\text{inflation}}_{2020Q1})$$</blue>
+:::
+
+
+## Exercise 1(d)  {auto-animate="true"}
+:::{.callout-question}
+Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
+:::
+<div style="height: 0.5em;"></div>
+**How can we forecast the 2020Q1 CPI?**
+
+First approach: $\widehat{CPI}_{2020Q1}=CPI_{2019Q4}\times(1+\widehat{\operatorname{inflation}}_{2020Q1})$
+```{r echo=FALSE}
+print(ForecastCPI_2020q1)
+```
+<div class="horizontal-line"></div>
+
+<blue>Second approach: $\widehat{CPI_{2020Q1}}=\exp(\log(CPI_{2019Q4})+\widehat{\text{inflation}}_{2020Q1})$</blue>
+
+```{r}
+n <- length(Y)
+ForecastY_2020Q1 <- Y[n] + ForecastInflation_2020q1
+print(ForecastY_2020Q1)      # Forecasted log CPI at 2020Q1
+```
+<div style="height: 0.3em;"></div>
+```{r}
+ForecastCPI_2020q1 <- exp(ForecastY_2020Q1)
+print(ForecastCPI_2020q1)    # Forecasted CPI level at 2020Q1
+```
+
+
+## Exercise 1(d)  {auto-animate="true"}
+:::{.callout-question}
+Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
+:::
+<div style="height: 0.5em;"></div>
+
+:::{.callout-tip}
+Recall that we modeled $\Delta Y_{t}$ as ARMA(1,3) <green>$\Rightarrow$ $Y_{t}$ should be modeled as ARMA(1,1,3)</green>.
+:::
+
+::: {.panel-tabset}
+
+## ARIMA(1,1,3) for $Y_{t}\equiv\log(CPI_{t})$
+
+```{r}
+eq1 = Arima(Y, order = c(1,1,3), xreg = (1:n))
+print(eq1)
+```
+<div style="height: 0.1em;"></div>
+$\displaystyle\textsf{The model is:}\quad\boxed{\quad\begin{aligned}
+\color{blue}{Y_{t}}\,&\color{blue}{=\beta_{1}t+Z_{t}}\\
+\Delta Z_{t}&=\phi_{1}\Delta Z_{t-1}+U_{t}+\theta_{1}U_{t-1}+\theta_{2}U_{t-2}+\theta_{3}U_{t-3}
+\end{aligned}\quad}$
+
+::: {.absolute top="530px" left="820px" style="font-size: 36px;"}
+<blue>These are two versions of the same model and give equivalent coefficient estimates!</blue>
+:::
+
+
+
+## ARMA(1,3) for $\Delta Y_{t}\equiv\Delta \log(CPI_{t})$
+```{r}
+eq = Arima(DY, order = c(1,0,3))
+print(eq)
+```
+$\displaystyle\textsf{The model is:}\quad\boxed{\quad\begin{aligned}
+\color{blue}{\Delta Y_{t}}\,&\color{blue}{=\beta_{1}+\Delta Z_{t}}\\
+\Delta Z_{t}&=\phi_{1}\Delta Z_{t-1}+U_{t}+\theta_{1}U_{t-1}+\theta_{2}U_{t-2}+\theta_{3}U_{t-3}
+\end{aligned}\quad}$
+:::
+
+::: {.absolute top="530px" left="820px" style="font-size: 36px;"}
+<blue>These are two versions of the same model and give equivalent coefficient estimates!</blue>
+:::
+
+
+
+## Exercise 1(d)  {auto-animate="true"}
+:::{.callout-question}
+Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
+:::
+<div style="height: 0.5em;"></div>
+
+:::{.callout-tip}
+Recall that we modeled $\Delta Y_{t}$ as ARMA(1,3) <green>$\Rightarrow$ $Y_{t}$ should be modeled as ARMA(1,1,3)</green>.
+:::
+<div style="height: 0.1em;"></div>
+We can forecast $Y_{2020Q1}\equiv\log(CPI_{2020Q1})$ with <purple>ARMA(1,3) of $\Delta Y_{t}$ with drift</purple>:
+
+```{r}
+eq = Arima(DY, order = c(1,0,3))
+ForecastInflation_2020q1 <- forecast(eq, h=1)$mean
+n <- length(Y)
+ForecastY_2020Q1 <- Y[n] + ForecastInflation_2020q1
+print(ForecastY_2020Q1)
+```
+
+:::{.fragment}
+<div style="height: 0.8em;"></div>
+We can also forecast $Y_{2020Q1}$ with <teal>ARIMA(1,1,3) of $Y_{t}$ with drift and trend</teal>:
+```{r}
+eq1 = Arima(Y, order = c(1,1,3), xreg = (1:n))
+ForecastY_2020q1 <- forecast(eq1, xreg=(n+1))$mean
+print(ForecastY_2020q1)
+```
+:::
+
+:::{.fragment}
+
+::: {.absolute top="548px" left="250px" style="font-size: 36px;"}
+<blue>$\to\;\;\boxed{\;\textsf{Using either model is fine.}\;}$</blue>
+:::
+
+::: {.absolute top="833px" left="250px" style="font-size: 36px;"}
+<blue>$\to\;\;\boxed{\;\textsf{Using either model is fine.}\;}$</blue>
+:::
+
+:::
+
+
+## Exercise 1(d)  {auto-animate="true"}
+:::{.callout-question}
+Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
+:::
+<div style="height: 0.5em;"></div>
+**Remarks on the CPI forecasts:** 
+
+Both approaches are approximations.
+
+:::{.fragment}
+<div class="horizontal-line"></div>
+First approach: $\widehat{CPI}_{2020Q1}=CPI_{2019Q4}\times (1+\color{purple}{\underbrace{\widehat{\text{inflation}}_{2020Q1}}_{\text{approximation}}})$
+:::
+
+:::{.fragment}
+<div class="horizontal-line"></div>
+Second approach: $\widehat{CPI}_{2020Q1}=\exp(\log(\widehat{CPI}_{2020Q1}))$
+:::
+
+
+
+
+## Exercise 1(d)  {auto-animate="true"}
+:::{.callout-question}
+Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
+:::
+<div style="height: 0.5em;"></div>
+**Remarks on the CPI forecasts:** 
+
+Both approaches are approximations.
+
+
+<div class="horizontal-line"></div>
+First approach: $\widehat{CPI}_{2020Q1}=CPI_{2019Q4}\times (1+\color{purple}{\underbrace{\widehat{\text{inflation}}_{2020Q1}}_{\text{approximation}}})$
+
+
+<div class="horizontal-line"></div>
+Second approach: $\widehat{CPI}_{2020Q1}=\exp(\color{teal}{\log(\widehat{CPI}_{2020Q1})}\color{black}{)}$
+
+<teal>
+<div style="height: 0.1em;"></div>
+The inner part is an estimate of an expectation conditional on information set $\mathcal{Y}_{2019Q4}$:
+$$\widehat{\log(CPI_{2020Q1})}\equiv\hat{Y}_{2020Q1}=\hat{\mathbb{E}}[Y_{2020Q1}\mid \mathcal{Y}_{2019Q4}]$$
+</teal>
+
+:::{.fragment}
+$$\implies \widehat{\log(CPI_{2020Q1})}=\hat{\mathbb{E}}[\log(CPI_{2020Q1})\mid \mathcal{Y}_{2019Q4}]$$
+and this is estimated through the ARIMA(1,1,3) model fitted on $Y_{t}$.
+:::
+
+
+
+## Exercise 1(d)  {auto-animate="true"}
+:::{.callout-question}
+Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
+:::
+<div style="height: 0.5em;"></div>
+**Remarks on the CPI forecasts:** 
+
+Both approaches are approximations.
+
+
+<div class="horizontal-line"></div>
+First approach: $\widehat{CPI}_{2020Q1}=CPI_{2019Q4}\times (1+\color{purple}{\underbrace{\widehat{\text{inflation}}_{2020Q1}}_{\text{approximation}}})$
+
+
+<div class="horizontal-line"></div>
+Second approach: $\widehat{CPI}_{2020Q1}=\exp(\color{blue}{\hat{\mathbb{E}}[\log(CPI_{2020Q1})\mid\mathcal{Y}_{2019Q4}]}\color{black}{)}$
+<div style="height: 0.5em;"></div>
+<oblue>
+**Question:** Does the following hold?
+$$\color{blue}{\mathbb{E}[{CPI}_{2020Q1}\mid\mathcal{Y}_{2019Q4}]\overset{?}{=}\exp(\mathbb{E}[\log(CPI_{2020Q1})\mid \mathcal{Y}_{2019Q4}])}$$
+</oblue>
+
+
+:::{.fragment}
+<blue>
+**Answer:** No. This is because of Jensen's inequality - since $\exp(x)$ is convex:
+$$\mathbb{E}[\exp(\log(CPI_{2020Q1})\mid \mathcal{Y}_{2019Q4})]>\exp(\mathbb{E}[\log(CPI_{2020Q1})\mid \mathcal{Y}_{2019Q4}])$$
+</blue>
+:::
+
+
+## Exercise 1(d)  {auto-animate="true"}
+:::{.callout-question}
+Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
+:::
+<div style="height: 0.5em;"></div>
+**Remarks on the CPI forecasts:** 
+
+Both approaches are approximations.
+
+
+<div class="horizontal-line"></div>
+First approach: $\widehat{CPI}_{2020Q1}=CPI_{2019Q4}\times (1+\color{purple}{\underbrace{\widehat{\text{inflation}}_{2020Q1}}_{\text{approximation}}})$
+
+
+<div class="horizontal-line"></div>
+Second approach: $\widehat{CPI}_{2020Q1}=\exp(\hat{\mathbb{E}}[\log(CPI_{2020Q1})\mid\mathcal{Y}_{2019Q4}]\color{black}{)}$
+<div style="height: 0.5em;"></div>
+<blue>
+Thus this estimator is actually biased for the conditional mean  $\mathbb{E}[CPI_{2020Q1}\mid\mathcal{Y}_{2019Q4}]$:
+$$\mathbb{E}[CPI_{2020Q1}\mid\mathcal{Y}_{2019Q4}]>\exp(\mathbb{E}[\log(CPI_{2020Q1})\mid \mathcal{Y}_{2019Q4}])$$
+</blue>
+
+:::{.fragment}
+<green>
+Nevertheless, in practice, simply taking the exponential tends to work well in providing a good approximation.
+</green>
+:::
+
+## Exercise 2  {auto-animate="true"}
+:::{.callout-question}
+It seems like if $Y_{t}$ has a linear trend then $\Delta Y_{t}$ does not. Explain why this is.
+:::
+<div style="height: 0.5em;"></div>
+:::{.callout-note}
+<blue>Recall from Exercise 1(d):</blue> ARIMA(1,1,3) with trend on $Y_{t}$ produced the same parameter estimates as ARMA(1,3) with drift on $\Delta Y_{t}$. Why is that?
+:::
+<div style="height: 0.5em;"></div>
+
+:::{.fragment}
+The `Arima` function is estimating the following set of equations:
+<div style="height: 0.5em;"></div>
+:::
+
+::: {.incremental}
+- ARIMA(1,1,3) with drift and trend for $Y_{t}$:
+\begin{align*}
+Y_{t}&= \beta_{0}+\beta_{1}t+Z_{t}\\
+\Delta Z_{t}&=\phi_{1}\Delta Z_{t-1}+U_{t}+\theta_{t} U_{t-1}+\theta_{2}U_{t-2}+\theta_{3}U_{t-3}
+\end{align*}<div style="height: 0.5em;"></div>
+
+- ARMA(1,3) with drift for $\Delta Y_{t}$:
+\begin{align*}
+\Delta Y_{t}&= \alpha+W_{t}\\
+W_{t}&=\phi_{1}W_{t-1}+U_{t}+\theta_{t} U_{t-1}+\theta_{2}U_{t-2}+\theta_{3}U_{t-3}
+\end{align*}
+
+:::
+
+:::{.fragment}
+If both gives the exact same estimates, then $\alpha=\beta_{1}$ and $W_{t}=\Delta Z_{t}$.
+:::
+
+
+## Exercise 2 {auto-animate="true"}
+:::{.callout-question}
+It seems like if $Y_{t}$ has a linear trend then $\Delta Y_{t}$ does not. Explain why this is.
+:::
+<div style="height: 0.5em;"></div>
+:::{.callout-note}
+<blue>Show that $\alpha=\beta_{1}$, $W_{t}=\Delta Z_{t}$ in the following equations:</blue>
+
+$$Y_{t}=\beta_{0}+\beta_{1}t+Z_{t}\qquad\qquad\Delta Y_{t}=\alpha+W_{t}$$
+:::
+<div style="height: 0.5em;"></div>
+
+:::{.fragment}
+Subtract $Y_{t-1}$ on both sides gives:
+
+$$Y_{t}\,\color{blue}{-\,Y_{t-1}}\color{black}{\,=(\beta_{0}+\beta_{1}t+Z_{t})}\color{blue}{\,-\,(\beta_{0}+\beta_{1}(t-1)+Z_{t-1})}$$
+:::
+
+:::{.fragment}
+Then simplify:
+\begin{align*}
+
+Y_{t}-Y_{t-1}&=\beta_{0}-\beta_{0}+\beta_{1}(t-(t-1))+Z_{t}-Z_{t-1}\\
+\Delta Y_{t}&=\beta_{1}+\Delta Z_{t}
+\end{align*}
+:::
+
+:::{.fragment}
+We have thereby shown that $\alpha=\beta_{1}$ and $W_{t}=\Delta Z_{t}$.
+<div style="height: 0.5em;"></div>
+:::
+
+:::{.fragment}
+<blue>In addition, we have shown that taking the first difference removes the linear trend.</blue>
+<blue>
+$$Y_{t}=\beta_{0}+\beta_{1}t+Z_{t}\quad\xrightarrow{\;\textsf{take first difference}\;}\quad \Delta Y_{t}=\beta_{1}+\Delta Z_{t}$$
+</blue>
+:::
+
+
+## {data-background-color="#000F46"}
+<div style="height: 85vh; display: flex; align-items: center; justify-content: center; color: white; font-size: 2em;">
+Thank you for coming!
+</div>
+
+
+<script>
+document.querySelectorAll("myimage").forEach(el => {
+  const src = el.getAttribute("src");
+  const width = el.getAttribute("width") || "100%";
+
+  const img = document.createElement("img");
+  img.src = src;
+  img.style.width = width;
+  img.style.maxWidth = "100%";  // prevent overflow
+  el.style.display = "block";
+  el.style.textAlign = "center";
+  
+  el.appendChild(img);
+});
+</script>
