@@ -53,7 +53,43 @@ format:
 
 :::
 <div style="height: 0.2em;"></div>
-Slides accessible here: `pengyunc.github.io/TSAF_Week6`
+ - Slides accessible here: `pengyunc.github.io/TSAF_Week6`
+ - Download HTML versions here: [Dropbox Link](https://www.dropbox.com/scl/fo/aoxoud5ex0j42hsrod3dg/ADblAt_jJ9hpESZME9FDcWc?rlkey=0s0oyf1y3uokzvlhbzxe2yy3g&st=kx2yupzr&dl=0)
+
+
+## (BONUS) Opening HTML Files in RStudio (1/2)
+
+It is possible to open HTML files in the **Viewer** pane of RStudio <grey>(bottom right panel)</grey>:
+<myimage src="figures/figure1.png" width="90%"></myimage>
+
+## (BONUS) Opening HTML Files in RStudio (2/2)
+<blue>Step 1: </blue>Set up your working directory containing HTML files:
+```{r}
+#| eval: false
+setwd("Your working directory goes here")
+```
+<div style="height: 0.5em;"></div>
+<blue>Step 2: </blue>Define the following function once:
+```{r}
+#| eval: false
+# Copy everything below into the console window and run it:
+openfile <- function(src) {
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  tmp_html <- file.path(tmp_dir, basename(src))
+  file.copy(src, tmp_html, overwrite = TRUE)
+  rstudioapi::viewer(tmp_html)
+}
+```
+<div style="height: 0.5em;"></div>
+<blue>Step 3: </blue>Call this function with file name as character string:
+```{r}
+#| eval: false
+# Just a few examples here:
+openfile("Lecture5.html")
+openfile("Tutorial6.html")
+openfile("ECOM30004_Tutorial_6_Slides.html")
+```
 
 
 ## This tutorial
@@ -62,15 +98,18 @@ Slides accessible here: `pengyunc.github.io/TSAF_Week6`
 <div style="height: 0.2em;"></div>
 :::{.callout-note title = "Agenda"}
 
-- <blue>Exercise 1(a):</blue> Transform CPI levels into log differences and select the ADF specification (lags).
+- <blue>Exercise 1(a):</blue> Transform CPI levels into log differences and select the ADF specification.
 
-- <blue>Exercise 1(b):</blue> Test the log-differenced series for a unit root (ADF).
+- <blue>Exercise 1(b):</blue> Test the log-differenced CPI for a unit root (ADF).
 
 - <blue>Exercise 1(c):</blue> Select the ARIMA model using AICc and Ljung–Box diagnostics.
 
-- <blue>Exercise 1(d):</blue> Forecast 2020Q1 inflation and the CPI level.
+- <blue>Exercise 1(d):</blue> Does the choice of using observation indices or observation dates matter?
 
-- <blue>Exercise 2:</blue> Explain why first differencing removes a linear trend.
+- <blue>Exercise 1(e):</blue> Forecast inflation and CPI for 2020Q1.
+
+
+- <blue>Exercise 2:</blue> Rearranging a time series model into its corresponding ADF test equation.
 :::
 
 <div style="height: 0.2em;"></div>
@@ -112,8 +151,8 @@ The test equation is:
 $$\Delta Y_{t}=\beta_{0}+\beta_{1}t+\varphi Y_{t-1}+\sum^{p-1}_{k=1}\psi_{k} \Delta Y_{t-k}+U_{t}$$
 The hypotheses are:
 \begin{align}
-H_{0}:&\;\varphi=0& &\text{($Y_{t}$ has a unit root)}\\
-H_{1}:&\;\varphi<0& &\text{($Y_{t}$ does not have a unit root)}
+H_{0}:&\;\varphi=0& &\textsf{($Y_{t}$ has a unit root)}\\
+H_{1}:&\;\varphi<0& &\textsf{($Y_{t}$ does not have a unit root)}
 \end{align}
 The number of lags of $\Delta Y_{t}$ (i.e., $p-1$) is selected by an information criterion (AIC), where $p$ is the order of the underlying AR model.
 
@@ -256,6 +295,7 @@ library(forecast)
 
 pmax <- 4
 qmax <- 4
+
 LBp <- matrix(nrow=pmax+1, ncol=qmax+1)
 rownames(LBp) <- paste0("p=", 0:pmax)
 colnames(LBp) <- paste0("q=", 0:qmax)
@@ -264,8 +304,8 @@ AICc <- LBp
 for (p in 0:pmax){
   for (q in 0:qmax){
     eq <- Arima(DY, order=c(p,0,q))
-    capture.output(LBp[p+1,q+1] <- checkresiduals(eq,
-      plot=FALSE)$p.value)
+    LBp[p+1,q+1] <- Box.test(eq$residuals, lag = 8, 
+                             type = "Ljung-Box", fitdf = p+q)$p.value
     AICc[p+1,q+1] <- eq$aicc
   }  
 }
@@ -280,7 +320,7 @@ Specify and estimate an appropriate ARIMA($p,d,q$) model for $Y_{t}$.
 
 Residual autocorrelation result (`=0` if $H_{0}$ maintained)
 ```{r}
-print(1*(LBp<0.05))
+print(LBp<0.05)
 ```
 <div style="height: 0.5em;"></div>
 
@@ -292,26 +332,269 @@ print(AICc==min(AICc))
 
 :::{.fragment}
 
-<blue>**Conclusion:** The chosen model is ARIMA($1,1,3$) for $Y_{t}$.</blue>
+<blue>**Conclusion:** The chosen model is ARMA($1,3$) for $\Delta Y_{t}$, equivalently ARIMA($1,1,3$) for $Y_{t}$.</blue>
+:::
+
+## Exercise 1(c) {auto-animate="true"}
+:::{.callout-question}
+<blue>Model the linear trend using the observation indices $t=1,2,\dots,n$. </blue>
+
+Combining a difference and a linear trend in the model requires some careful interpretation - write out the model in equation form and interpret the coefficients.
+:::
+<div style="height: 0.5em;"></div>
+
+:::{.panel-tabset}
+
+## ARIMA(1,0,3) on $\Delta Y_{t}$
+
+To estimate the ARIMA(1,0,3) model for $\Delta Y_{t}$, with that difference already taken in computing `DY`:
+```{r}
+eq_a <- Arima(DY, order = c(1,0,3))
+print(round(eq_a$coef,4))
+```
+<div class="horizontal-line"></div>
+In equation form, this estimated model can be written as:
+
+\begin{align}
+\Delta Y_{t}&=0.0120 +\widehat{\Delta Z}_{t}\\
+\widehat{\Delta Z}_{t}&=0.8316\widehat{\Delta Z}_{t-1}+\widehat{U}_{t}-0.6377\widehat{U}_{t-1}+0.2380\widehat{U}_{t-2}+0.1276\widehat{U}_{t-3}
+\end{align}
+
+The intercept of the model, $\widehat{\beta}_{1}=0.0120$, implies the estimated mean rate of inflation is $0.0120$, or $1.2\%$ per quarter (this is a qurterly time series).
+
+## ARIMA(1,1,3) on $Y_{t}$
+The same model may be estimated as an ARIMA($1,1,3$) model for $Y_{t}$:
+```{r}
+eq_b <- Arima(Y, order = c(1,1,3), include.drift = TRUE)
+print(round(eq_b$coef,4))
+```
+<div class="horizontal-line"></div>
+
+\begin{align}
+ Y_{t}&=0.0120t +\widehat{Z}_{t}\\
+\widehat{\Delta Z}_{t}&=0.8316\widehat{\Delta Z}_{t-1}+\widehat{U}_{t}-0.6377\widehat{U}_{t-1}+0.2380\widehat{U}_{t-2}+0.1276\widehat{U}_{t-3}
+\end{align}
+
+:::{.callout-note title = "Note"}
+- `include.drift = TRUE` option is necessary for the inclusion of $\beta_{1}$ when the differencing is specified under `order = c(1,1,3)` rather than taking the difference beforehand and included in the model as `DY`.
+- It is called "drift" because a constant in a first-differenced process corresponds to a linear trend in the level of $Y_{t}$.
+- Alternatively, replicating this with `xreg` argument:
+```{r}
+t <- 1:length(Y)
+eq_b_xreg <- Arima(Y, order = c(1,1,3), xreg = t)
+print(round(eq_b_xreg$coef,4))
+```
 :::
 
 
-## Exercise 1(d)  {auto-animate="true"}
+
+## Comments on Forecasting
+```{r}
+print(round(eq_a$coef,4))
+print(round(eq_b$coef,4))
+```
+<div class="horizontal-line"></div>
+- The two approaches are equivalent for estimation, as can be seen from these coefficient estimates. There is a difference, however, between the two when it comes to forecasting. 
+  - The ARMA(1,3) model on $\Delta Y_{t}$ (`DY`) will generate forecasts for $\Delta Y_{t}$ (inflation), while the second is model for $Y_{t}$ (`Y`, log CPI). <blue>$\to$ We will demonstrate this in part (e).</blue>
+- Neither is necessarily better/worse, it just depends on the intended purpose.
+
+:::
+
+
+## Exercise 1(d) {auto-animate="true"}
 :::{.callout-question}
-<blue>Use the chosen model to calculate a forecast of inflation</blue> and the CPI for the March quarter of 2020.
+In previous applications we have modeled the linear trend using the observation *dates* $\text{Time}_{t}$. Set up the same ARIMA$(p,d,q)$ model for $Y_{t}$ as (c), but use the observation dates instead. 
+
+<blue>Show how this is equivalent to using observation indices for the trend.</blue>
+:::
+<div style="height: 0.5em;"></div>
+<blue>What are **observation dates** and **observation indices**?</blue>
+```{r}
+t <- 1:length(Y)   # Observation Indices
+Time <- time(Y)    # Observation Dates
+```
+<div style="height: 0.5em;"></div>
+Here are the first and last few observation indices and dates:
+```{r}
+df <- data.frame(t = 1:length(Y), Time = time(Y))
+yr <- floor(df$Time)
+qtr <- round((df$Time - yr) * 4) + 1
+rownames(df) <- paste(yr, paste0("Q", qtr))
+```
+<div style="height: 0.5em;"></div>
+::: columns
+
+::: {.column width="50%"}
+```{r}
+head(df)
+```
+:::
+
+::: {.column width="50%"}
+```{r}
+tail(df)
+```
+:::
+
+:::
+
+
+## Exercise 1(d) {auto-animate="true"}
+:::{.callout-question}
+In previous applications we have modeled the linear trend using the observation *dates* $\text{Time}_{t}$. Set up the same ARIMA$(p,d,q)$ model for $Y_{t}$ as (c), but use the observation dates instead. 
+
+<blue>Show how this is equivalent to using observation indices for the trend.</blue>
+:::
+
+<div style="height: 0.5em;"></div>
+We start from the trend model with observation *indices* ($t$):
+\begin{align}
+Y_{t}&=\mathbb{E}(Y_{t})+Z_{t}\\
+\textsf{where}\quad \mathbb{E}(Y_{t})&=\beta_{0}+\textcolor{black}{\beta_{1}}t & &\textsf{(Trend model with observation indices)}\\
+\mathbb{E}(Y_{t})&=\beta^{*}_{0}+\beta^{*}_{1}\text{Time}_{t} & &\textsf{(Trend model with observation dates)}
+\end{align}
+
+## Exercise 1(d) {auto-animate="true"}
+:::{.callout-question}
+In previous applications we have modeled the linear trend using the observation *dates* $\text{Time}_{t}$. Set up the same ARIMA$(p,d,q)$ model for $Y_{t}$ as (c), but use the observation dates instead. 
+
+<blue>Show how this is equivalent to using observation indices for the trend.</blue>
+:::
+
+<div style="height: 0.5em;"></div>
+We start from the trend model with observation *indices* ($t$):
+\begin{align}
+Y_{t}&=\mathbb{E}(Y_{t})+Z_{t}\\
+\textsf{where}\quad \mathbb{E}(Y_{t})&=\beta_{0}+\textcolor{purple}{\beta_{1}}t & &\textsf{(Trend model with observation indices)}\\
+\mathbb{E}(Y_{t})&=\beta^{*}_{0}+\beta^{*}_{1}\text{Time}_{t} & &\textsf{(Trend model with observation dates)}
+\end{align}
+
+<purple>The interpretation of $\beta_{1}$ is the change in mean of $Y_{t}$ when $t$ increases by one (i.e. when time advances by one period, one *quarter* in this case.)</purple>
+
+## Exercise 1(d) {auto-animate="true"}
+:::{.callout-question}
+In previous applications we have modeled the linear trend using the observation *dates* $\text{Time}_{t}$. Set up the same ARIMA$(p,d,q)$ model for $Y_{t}$ as (c), but use the observation dates instead. 
+
+<blue>Show how this is equivalent to using observation indices for the trend.</blue>
+:::
+
+<div style="height: 0.5em;"></div>
+We start from the trend model with observation *indices* ($t$):
+\begin{align}
+Y_{t}&=\mathbb{E}(Y_{t})+Z_{t}\\
+\textsf{where}\quad \mathbb{E}(Y_{t})&=\beta_{0}+\textcolor{purple}{\beta_{1}}t & &\textsf{(Trend model with observation indices)}\\
+\mathbb{E}(Y_{t})&=\beta^{*}_{0}+\textcolor{teal}{\beta^{*}_{1}}\text{Time}_{t} & &\textsf{(Trend model with observation dates)}
+\end{align}
+
+<purple>The interpretation of $\beta_{1}$ is the change in mean of $Y_{t}$ when $t$ increases by one (i.e. when time advances by one period, one *quarter* in this case.)</purple>
+
+<div style="height: 0.2em;"></div>
+<teal>The interpretation of $\beta^{*}_{1}$ is the change in mean of $Y_{t}$ when $\text{Time}_{t}$ increases by one (i.e. one *year* in this case.)</teal>
+
+<div style="height: 0.2em;"></div>
+:::{.fragment}
+<blue>**Question:** </blue>How are $\textcolor{purple}{\beta_{1}}$ and $\textcolor{teal}{\beta^{*}_{1}}$ related?
+:::
+
+
+## Exercise 1(d) {auto-animate="true"}
+:::{.callout-question}
+In previous applications we have modeled the linear trend using the observation *dates* $\text{Time}_{t}$. Set up the same ARIMA$(p,d,q)$ model for $Y_{t}$ as (c), but use the observation dates instead. 
+
+<blue>Show how this is equivalent to using observation indices for the trend.</blue>
+:::
+
+<div style="height: 0.5em;"></div>
+We start from the trend model with observation *indices* ($t$):
+\begin{align}
+Y_{t}&=\mathbb{E}(Y_{t})+Z_{t}\\
+\textsf{where}\quad \mathbb{E}(Y_{t})&=\beta_{0}+\textcolor{purple}{\beta_{1}}t & &\textsf{(Trend model with observation indices)}\\
+\mathbb{E}(Y_{t})&=\beta^{*}_{0}+\textcolor{teal}{\beta^{*}_{1}}\text{Time}_{t} & &\textsf{(Trend model with observation dates)}
+\end{align}
+
+<blue>**Question:** </blue>How are $\textcolor{purple}{\beta_{1}}$ and $\textcolor{teal}{\beta^{*}_{1}}$ related? [<green>$\to$ Intuitively, with quarterly data $\beta_{1}=0.25\beta^{*}_{1}$.</green>]{.fragment}
+
+:::{.incremental}
+
+- We start with $\textcolor{teal}{\text{Time}_{t}=1945.75+0.25t}$.
+- Then plugging this into the trend model with observation dates:
+\begin{align}
+Y_{t}&=\beta_{0}^*+\beta_{1}^{*}\textcolor{teal}{\text{Time}_{t}}+Z_{t}\\
+&=\beta_{0}^*+\beta_{1}^{*}(\textcolor{teal}{1945.75+0.25t})+Z_{t}\\
+&=\textcolor{purple}{(\beta_{0}^{*}+1945.75\beta_{1}^*)}+\textcolor{purple}{0.25\beta_{1}^{*}}t+Z_{t}
+\end{align}
+- Reading off the coefficients, we know <purple>$\beta_{0}=\beta_{0}^{*}+1045.75\beta_{1}^{*}$</purple> and <purple>$\beta_{1}=0.25\beta_{1}^*$</purple>.
+:::
+
+
+
+## Exercise 1(d) {auto-animate="true"}
+:::{.callout-question}
+In previous applications we have modeled the linear trend using the observation *dates* $\text{Time}_{t}$. Set up the same ARIMA$(p,d,q)$ model for $Y_{t}$ as (c), but use the observation dates instead. 
+
+<blue>Show how this is equivalent to using observation indices for the trend.</blue>
+:::
+
+<div style="height: 0.5em;"></div>
+```{r}
+t <- 1:length(Y)
+eq_b <- Arima(Y, order = c(1,1,3), include.drift = TRUE) 
+# Equivalently eq_b_xreg <- Arima(Y, order = c(1,1,3), xreg = t)  
+print(round(eq_b$coef,4))
+```
+::: {style="position: absolute; left: 39%; top: 42%; width: 110px; height: 70px; border: 3px solid purple; background: transparent; box-sizing: border-box;"}
+:::
+::: {style="position: absolute; left: 48.5%; top: 42%; width: 110px; height: 70px; border: 0px solid teal; background: transparent; box-sizing: border-box;"}
+<purple>$\beta_{1}$</purple>
+:::
+
+:::{.fragment}
+<div style="height: 0.5em;"></div>
+```{r}
+Time <- time(Y)
+# include.drift = FALSE is actually the default, but it is included here to 
+# emphasise the point
+eq_c <- Arima(Y, order = c(1,1,3), xreg = Time, include.drift = FALSE)
+print(round(eq_c$coef,4))
+```
+::: {style="position: absolute; left: 39%; top: 71%; width: 110px; height: 70px; border: 3px solid teal; background: transparent; box-sizing: border-box;"}
+:::
+::: {style="position: absolute; left: 48.5%; top: 71%; width: 110px; height: 70px; border: 0px solid teal; background: transparent; box-sizing: border-box;"}
+<teal>$\beta_{1}^*$</teal>
+:::
+:::
+
+:::{.fragment}
+<div style="height: 0.5em;"></div>
+```{r}
+print(eq_c$coef["xreg"]/eq_b$coef["drift"])   # beta1*/beta1
+```
+::: {style="position: absolute; left: 15%; top: 86%; width: 110px; height: 70px; border: 0px solid teal; background: transparent; box-sizing: border-box;"}
+$\textcolor{teal}{\beta_{1}^*}/\textcolor{purple}{\beta_{1}}$
+:::
+:::
+
+:::{.fragment}
+<blue>**Bottom Line: **We may model the linear trend in terms of observation date or observation index, according to which is more convenient, and the resulting model will be equivalent either way.</blue>
+:::
+
+
+## Exercise 1(e)  {auto-animate="true"}
+:::{.callout-question}
+Use the chosen model to calculate a forecast of <blue>inflation</blue>, $\log(CPI_{t})$ and the $CPI_{t}$ itself for the March quarter of 2020.
 :::
 <div style="height: 0.5em;"></div>
 :::{.callout-tip}
 Note that we have selected ARMA(1,3) for $\Delta Y_{t}\equiv \Delta\log(CPI_{t})$ in Exercise 1(c).
 :::
+<div style="height: 0.5em;"></div>
 
 :::{.fragment}
-<div style="height: 0.1em;"></div>
 Forecast 2020Q1 inflation:  $\Delta{}Y_{2020Q1}=\log(CPI_{2020Q1})-\log(CPI_{2019Q4})$
 ```{r}
-eq <- Arima(DY, order = c(1,0,3))
-ForecastInflation_2020q1 <- forecast(eq, h=1)$mean
-print(ForecastInflation_2020q1)
+# Recall: eq_a <- Arima(DY, order = c(1,0,3))
+ForecastInflation_2020q1 <- forecast(eq_a, h=1)$mean
+print(round(ForecastInflation_2020q1, 4))
 ```
 :::
 
@@ -328,9 +611,115 @@ CPI_{2019Q4}(1+\text{inflation}_{2020Q1})&=CPI_{2020Q1}\\
 :::
 
 
-## Exercise 1(d)  {auto-animate="true"}
+## Exercise 1(e)  {auto-animate="true"}
 :::{.callout-question}
-Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
+Use the chosen model to calculate a forecast of inflation, <blue>$\log(CPI_{t})$</blue> and the $CPI_{t}$ itself for the March quarter of 2020.
+:::
+<div style="height: 0.5em;"></div>
+:::{.callout-tip}
+Note that we have selected ARMA(1,3) for $\Delta Y_{t}\equiv \Delta\log(CPI_{t})$ in Exercise 1(c).
+:::
+<div style="height: 0.5em;"></div>
+
+Forecast 2020Q1 inflation:  $\Delta{}Y_{2020Q1}=\log(CPI_{2020Q1})-\log(CPI_{2019Q4})$
+```{r echo=FALSE}
+# Recall: eq_a <- Arima(DY, order = c(1,0,3))
+ForecastInflation_2020q1 <- forecast(eq_a, h=1)$mean
+print(round(ForecastInflation_2020q1, 4))
+```
+::: {style="position: absolute; left: 20%; top: 40%; width: 110px; height: 70px; border: 0px solid teal; background: transparent; box-sizing: border-box;"}
+<purple>$\widehat{\mathbb{E}}(\Delta Y_{n+1}\mid\mathscr{Y}_{n})$</purple>
+:::
+<div class="horizontal-line"></div>
+Forecast 2020Q1 $\log(CPI_{2020Q1})\equiv Y_{2020Q1}$:
+
+:::{.incremental}
+- First we know that $\Delta Y_{2020Q1}=Y_{2020Q1}-Y_{2019Q4}$.
+- On both sides take the conditional expectation based on data up to and including 2019Q4 ($\mathscr{Y}_{2019Q4}$):
+$$\mathbb{E}(\Delta Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})=\mathbb{E}(Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})-\mathbb{E}(Y_{2019Q4}\mid\mathscr{Y}_{2019Q4})$$
+- Since $Y_{2019Q4}\in\mathscr{Y}_{2019Q4}$, $\mathbb{E}(Y_{2019Q4}\mid\mathscr{Y}_{2019Q4})=Y_{2019Q4}$, thus adding hats gives:
+$$\widehat{\mathbb{E}}(Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})=Y_{2019Q4}+\textcolor{purple}{\widehat{\mathbb{E}}(\Delta Y_{n+1}\mid\mathscr{Y}_{n})}$$
+:::
+
+## Exercise 1(e)  {auto-animate="true"}
+:::{.callout-question}
+Use the chosen model to calculate a forecast of inflation, <blue>$\log(CPI_{t})$</blue> and the $CPI_{t}$ itself for the March quarter of 2020.
+:::
+<div style="height: 0.5em;"></div>
+:::{.callout-tip}
+Note that we have selected ARMA(1,3) for $\Delta Y_{t}\equiv \Delta\log(CPI_{t})$ in Exercise 1(c).
+:::
+<div style="height: 0.5em;"></div>
+
+Forecast 2020Q1 inflation:  $\Delta{}Y_{2020Q1}=\log(CPI_{2020Q1})-\log(CPI_{2019Q4})$
+```{r echo=FALSE}
+# Recall: eq_a <- Arima(DY, order = c(1,0,3))
+ForecastInflation_2020q1 <- forecast(eq_a, h=1)$mean
+print(round(ForecastInflation_2020q1, 4))
+```
+::: {style="position: absolute; left: 20%; top: 40%; width: 110px; height: 70px; border: 0px solid teal; background: transparent; box-sizing: border-box;"}
+<purple>$\widehat{\mathbb{E}}(\Delta Y_{n+1}\mid\mathscr{Y}_{n})$</purple>
+:::
+<div class="horizontal-line"></div>
+Forecast 2020Q1 $\log(CPI_{2020Q1})\equiv Y_{2020Q1}$:
+$$\widehat{\mathbb{E}}(Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})=Y_{2019Q4}+\textcolor{purple}{\widehat{\mathbb{E}}(\Delta Y_{n+1}\mid\mathscr{Y}_{n})}$$
+```{r}
+Forecast_logCPI_2020q1 <- ForecastInflation_2020q1 + Y[length(Y)]
+print(round(Forecast_logCPI_2020q1,4))
+```
+
+
+## Exercise 1(e)  {auto-animate="true"}
+:::{.callout-question}
+Use the chosen model to calculate a forecast of inflation, <blue>$\log(CPI_{t})$</blue> and the $CPI_{t}$ itself for the March quarter of 2020.
+:::
+<div style="height: 0.5em;"></div>
+:::{.callout-tip}
+Note that we have selected ARMA(1,3) for $\Delta Y_{t}\equiv \Delta\log(CPI_{t})$ in Exercise 1(c).
+:::
+<div style="height: 0.5em;"></div>
+Forecast 2020Q1 $\log(CPI_{2020Q1})\equiv Y_{2020Q1}$:
+<div style="height: 0.5em;"></div>
+
+:::{.panel-tabset}
+
+## `eq_a`
+First forecast $\widehat{\mathbb{E}}(\Delta Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})$, then obtain $\widehat{\mathbb{E}}(\log(CPI_{2020Q1})\mid\mathscr{Y}_{2019Q4})$ using the following relationship:
+$$\widehat{\mathbb{E}}(Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})=Y_{2019Q4}+\widehat{\mathbb{E}}(\Delta Y_{n+1}\mid\mathscr{Y}_{n})$$
+```{r}
+# Recall: eq_a <- Arima(DY, order = c(1,0,3))
+ForecastInflation_2020q1 <- forecast(eq_a, h=1)$mean
+Forecast_logCPI_2020q1 <- ForecastInflation_2020q1 + Y[length(Y)]
+print(round(Forecast_logCPI_2020q1,4))
+```
+
+
+## Alternative - `eq_b`
+As an alternative, we could directly forecast `Y` with `eq_b` as previously defined:
+```{r}
+# Recall: eq_a <- Arima(DY, order = c(1,0,3))
+Forecast_logCPI_2020q1 <- forecast(eq_b, h=1)$mean
+print(round(Forecast_logCPI_2020q1,4))
+```
+<div style="height: 0.5em;"></div>
+<blue>This is useful if we were only concerned with forecasting $Y_{2020Q1}\equiv\log(CPI_{2020Q1})$ but not the inflation rate $\Delta Y_{2020Q1}\equiv \Delta\log(CPI_{2020Q1})$.</blue>
+
+## Alternative - `eq_c`
+<div style="height: 0.5em;"></div>
+The same forecast for $\log(CPI_{2020Q1})$ can also be computed using `eq_c` as previously defined, where observation dates $\text{Time}_{t}$ is used for the linear trend.
+<div style="height: 0.5em;"></div>
+```{r}
+# It is NECESSARY to specify the value for the trend variable 
+# (xreg = 2020.00) that applied for the one-step-ahead forecast:
+Forecast_logCPI_2020q1_c <- forecast(eq_c, xreg = 2020.00)$mean
+print(round(Forecast_logCPI_2020q1_c, 4))
+```
+:::
+
+
+## Exercise 1(e)  {auto-animate="true"}
+:::{.callout-question}
+Use the chosen model to calculate a forecast of inflation, $\log(CPI_{t})$ and the <blue>$CPI_{t}$ itself</blue> for the March quarter of 2020.
 :::
 <div style="height: 0.5em;"></div>
 :::{.callout-tip}
@@ -353,155 +742,40 @@ CPI <- ts(dt$CPI, start=c(1922,2), end=c(2025,2), frequency=4)
 CPI_2019q4 <- CPI[which(time(CPI)==2019.75)]
 
 # Forecast CPI for 2020q1
-ForecastCPI_2020q1 <- CPI_2019q4*(1+ForecastInflation_2020q1)
-print(ForecastCPI_2020q1)
+ForecastCPI_2020q1_a <- CPI_2019q4*(1+ForecastInflation_2020q1)
+print(ForecastCPI_2020q1_a)
 ```
 :::
 
 
-## Exercise 1(d)  {auto-animate="true"}
+
+## Exercise 1(e)  {auto-animate="true"}
 :::{.callout-question}
-Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
+Use the chosen model to calculate a forecast of inflation, $\log(CPI_{t})$ and the <blue>$CPI_{t}$ itself</blue> for the March quarter of 2020.
 :::
 <div style="height: 0.5em;"></div>
-
 **How can we forecast the 2020Q1 CPI?**
 
 First approach: $\widehat{CPI}_{2020Q1}=CPI_{2019Q4}\times(1+\widehat{\operatorname{inflation}}_{2020Q1})$
 ```{r echo=FALSE}
-print(ForecastCPI_2020q1)
+print(ForecastCPI_2020q1_a)
 ```
 <div class="horizontal-line"></div>
 
 :::{.fragment}
-<blue>Second approach:</blue>
-
-- Since we know that <blue>$\widehat{\log(CPI_{2020Q1})}=\log(CPI_{2019Q4})+\widehat{\text{inflation}}_{2020Q1}$</blue>
-- then we can just take the exponential of the logs:
-<blue>$$\widehat{CPI_{2020Q1}}=\exp(\widehat{\log(CPI_{2020Q1})})=\exp(\log(CPI_{2019Q4})+\widehat{\text{inflation}}_{2020Q1})$$</blue>
-:::
-
-
-## Exercise 1(d)  {auto-animate="true"}
-:::{.callout-question}
-Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
-:::
-<div style="height: 0.5em;"></div>
-**How can we forecast the 2020Q1 CPI?**
-
-First approach: $\widehat{CPI}_{2020Q1}=CPI_{2019Q4}\times(1+\widehat{\operatorname{inflation}}_{2020Q1})$
-```{r echo=FALSE}
-print(ForecastCPI_2020q1)
-```
-<div class="horizontal-line"></div>
-
-<blue>Second approach: $\widehat{CPI_{2020Q1}}=\exp(\log(CPI_{2019Q4})+\widehat{\text{inflation}}_{2020Q1})$</blue>
-
-```{r}
-n <- length(Y)
-ForecastY_2020Q1 <- Y[n] + ForecastInflation_2020q1
-print(ForecastY_2020Q1)      # Forecasted log CPI at 2020Q1
-```
+<blue>Second approach: take the exponential to "reverse" the log transformation
+$$\widehat{CPI_{2020Q1}}=\exp(\widehat{\log(CPI_{2020Q1}})$$</blue>
 <div style="height: 0.3em;"></div>
 ```{r}
-ForecastCPI_2020q1 <- exp(ForecastY_2020Q1)
-print(ForecastCPI_2020q1)    # Forecasted CPI level at 2020Q1
+ForecastCPI_2020q1_b <- exp(Forecast_logCPI_2020q1)
+print(ForecastCPI_2020q1_b)    # Forecasted CPI level at 2020Q1
 ```
+:::
 
 
-## Exercise 1(d)  {auto-animate="true"}
+## Exercise 1(e)  {auto-animate="true"}
 :::{.callout-question}
-Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
-:::
-<div style="height: 0.5em;"></div>
-
-:::{.callout-tip}
-Recall that we modeled $\Delta Y_{t}$ as ARMA(1,3) <green>$\Rightarrow$ $Y_{t}$ should be modeled as ARMA(1,1,3)</green>.
-:::
-
-::: {.panel-tabset}
-
-## ARIMA(1,1,3) for $Y_{t}\equiv\log(CPI_{t})$
-
-```{r}
-eq1 = Arima(Y, order = c(1,1,3), xreg = (1:n))
-print(eq1)
-```
-<div style="height: 0.1em;"></div>
-$\displaystyle\textsf{The model is:}\quad\boxed{\quad\begin{aligned}
-\color{blue}{Y_{t}}\,&\color{blue}{=\beta_{1}t+Z_{t}}\\
-\Delta Z_{t}&=\phi_{1}\Delta Z_{t-1}+U_{t}+\theta_{1}U_{t-1}+\theta_{2}U_{t-2}+\theta_{3}U_{t-3}
-\end{aligned}\quad}$
-
-::: {.absolute top="530px" left="820px" style="font-size: 36px;"}
-<blue>These are two versions of the same model and give equivalent coefficient estimates!</blue>
-:::
-
-
-
-## ARMA(1,3) for $\Delta Y_{t}\equiv\Delta \log(CPI_{t})$
-```{r}
-eq = Arima(DY, order = c(1,0,3))
-print(eq)
-```
-$\displaystyle\textsf{The model is:}\quad\boxed{\quad\begin{aligned}
-\color{blue}{\Delta Y_{t}}\,&\color{blue}{=\beta_{1}+\Delta Z_{t}}\\
-\Delta Z_{t}&=\phi_{1}\Delta Z_{t-1}+U_{t}+\theta_{1}U_{t-1}+\theta_{2}U_{t-2}+\theta_{3}U_{t-3}
-\end{aligned}\quad}$
-:::
-
-::: {.absolute top="530px" left="820px" style="font-size: 36px;"}
-<blue>These are two versions of the same model and give equivalent coefficient estimates!</blue>
-:::
-
-
-
-## Exercise 1(d)  {auto-animate="true"}
-:::{.callout-question}
-Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
-:::
-<div style="height: 0.5em;"></div>
-
-:::{.callout-tip}
-Recall that we modeled $\Delta Y_{t}$ as ARMA(1,3) <green>$\Rightarrow$ $Y_{t}$ should be modeled as ARMA(1,1,3)</green>.
-:::
-<div style="height: 0.1em;"></div>
-We can forecast $Y_{2020Q1}\equiv\log(CPI_{2020Q1})$ with <purple>ARMA(1,3) of $\Delta Y_{t}$ with drift</purple>:
-
-```{r}
-eq = Arima(DY, order = c(1,0,3))
-ForecastInflation_2020q1 <- forecast(eq, h=1)$mean
-n <- length(Y)
-ForecastY_2020Q1 <- Y[n] + ForecastInflation_2020q1
-print(ForecastY_2020Q1)
-```
-
-:::{.fragment}
-<div style="height: 0.8em;"></div>
-We can also forecast $Y_{2020Q1}$ with <teal>ARIMA(1,1,3) of $Y_{t}$ with drift and trend</teal>:
-```{r}
-eq1 = Arima(Y, order = c(1,1,3), xreg = (1:n))
-ForecastY_2020q1 <- forecast(eq1, xreg=(n+1))$mean
-print(ForecastY_2020q1)
-```
-:::
-
-:::{.fragment}
-
-::: {.absolute top="548px" left="250px" style="font-size: 36px;"}
-<blue>$\to\;\;\boxed{\;\textsf{Using either model is fine.}\;}$</blue>
-:::
-
-::: {.absolute top="833px" left="250px" style="font-size: 36px;"}
-<blue>$\to\;\;\boxed{\;\textsf{Using either model is fine.}\;}$</blue>
-:::
-
-:::
-
-
-## Exercise 1(d)  {auto-animate="true"}
-:::{.callout-question}
-Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
+Use the chosen model to calculate a forecast of inflation, $\log(CPI_{t})$ and the <blue>$CPI_{t}$ itself</blue> for the March quarter of 2020.
 :::
 <div style="height: 0.5em;"></div>
 **Remarks on the CPI forecasts:** 
@@ -520,10 +794,9 @@ Second approach: $\widehat{CPI}_{2020Q1}=\exp(\log(\widehat{CPI}_{2020Q1}))$
 
 
 
-
-## Exercise 1(d)  {auto-animate="true"}
+## Exercise 1(e)  {auto-animate="true"}
 :::{.callout-question}
-Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
+Use the chosen model to calculate a forecast of inflation, $\log(CPI_{t})$ and the <blue>$CPI_{t}$ itself</blue> for the March quarter of 2020.
 :::
 <div style="height: 0.5em;"></div>
 **Remarks on the CPI forecasts:** 
@@ -536,55 +809,25 @@ First approach: $\widehat{CPI}_{2020Q1}=CPI_{2019Q4}\times (1+\color{purple}{\un
 
 
 <div class="horizontal-line"></div>
-Second approach: $\widehat{CPI}_{2020Q1}=\exp(\color{teal}{\log(\widehat{CPI}_{2020Q1})}\color{black}{)}$
-
-<teal>
-<div style="height: 0.1em;"></div>
-The inner part is an estimate of an expectation conditional on information set $\mathcal{Y}_{2019Q4}$:
-$$\widehat{\log(CPI_{2020Q1})}\equiv\hat{Y}_{2020Q1}=\hat{\mathbb{E}}[Y_{2020Q1}\mid \mathcal{Y}_{2019Q4}]$$
-</teal>
-
-:::{.fragment}
-$$\implies \widehat{\log(CPI_{2020Q1})}=\hat{\mathbb{E}}[\log(CPI_{2020Q1})\mid \mathcal{Y}_{2019Q4}]$$
-and this is estimated through the ARIMA(1,1,3) model fitted on $Y_{t}$.
-:::
-
-
-
-## Exercise 1(d)  {auto-animate="true"}
-:::{.callout-question}
-Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
-:::
-<div style="height: 0.5em;"></div>
-**Remarks on the CPI forecasts:** 
-
-Both approaches are approximations.
-
-
-<div class="horizontal-line"></div>
-First approach: $\widehat{CPI}_{2020Q1}=CPI_{2019Q4}\times (1+\color{purple}{\underbrace{\widehat{\text{inflation}}_{2020Q1}}_{\text{approximation}}})$
-
-
-<div class="horizontal-line"></div>
-Second approach: $\widehat{CPI}_{2020Q1}=\exp(\color{blue}{\hat{\mathbb{E}}[\log(CPI_{2020Q1})\mid\mathcal{Y}_{2019Q4}]}\color{black}{)}$
+Second approach: $\widehat{CPI}_{2020Q1}=\exp(\color{blue}{\hat{\mathbb{E}}[\log(CPI_{2020Q1})\mid\mathscr{Y}_{2019Q4}]}\color{black}{)}$
 <div style="height: 0.5em;"></div>
 <oblue>
 **Question:** Does the following hold?
-$$\color{blue}{\mathbb{E}[{CPI}_{2020Q1}\mid\mathcal{Y}_{2019Q4}]\overset{?}{=}\exp(\mathbb{E}[\log(CPI_{2020Q1})\mid \mathcal{Y}_{2019Q4}])}$$
+$$\color{blue}{\mathbb{E}[{CPI}_{2020Q1}\mid\mathscr{Y}_{2019Q4}]\overset{?}{=}\exp(\mathbb{E}[\log(CPI_{2020Q1})\mid \mathscr{Y}_{2019Q4}])}$$
 </oblue>
 
 
 :::{.fragment}
 <blue>
 **Answer:** No. This is because of Jensen's inequality - since $\exp(x)$ is convex:
-$$\mathbb{E}[\exp(\log(CPI_{2020Q1})\mid \mathcal{Y}_{2019Q4})]>\exp(\mathbb{E}[\log(CPI_{2020Q1})\mid \mathcal{Y}_{2019Q4}])$$
+$$\mathbb{E}[\exp(\log(CPI_{2020Q1})\mid \mathscr{Y}_{2019Q4})]>\exp(\mathbb{E}[\log(CPI_{2020Q1})\mid \mathscr{Y}_{2019Q4}])$$
 </blue>
 :::
 
 
-## Exercise 1(d)  {auto-animate="true"}
+## Exercise 1(e)  {auto-animate="true"}
 :::{.callout-question}
-Use the chosen model to calculate a forecast of inflation and <blue>the CPI for the March quarter of 2020</blue>.
+Use the chosen model to calculate a forecast of inflation, $\log(CPI_{t})$ and the <blue>$CPI_{t}$ itself</blue> for the March quarter of 2020.
 :::
 <div style="height: 0.5em;"></div>
 **Remarks on the CPI forecasts:** 
@@ -597,93 +840,164 @@ First approach: $\widehat{CPI}_{2020Q1}=CPI_{2019Q4}\times (1+\color{purple}{\un
 
 
 <div class="horizontal-line"></div>
-Second approach: $\widehat{CPI}_{2020Q1}=\exp(\hat{\mathbb{E}}[\log(CPI_{2020Q1})\mid\mathcal{Y}_{2019Q4}]\color{black}{)}$
+Second approach: $\widehat{CPI}_{2020Q1}=\exp(\hat{\mathbb{E}}[\log(CPI_{2020Q1})\mid\mathscr{Y}_{2019Q4}]\color{black}{)}$
 <div style="height: 0.5em;"></div>
 <blue>
-Thus this estimator is actually biased for the conditional mean  $\mathbb{E}[CPI_{2020Q1}\mid\mathcal{Y}_{2019Q4}]$:
-$$\mathbb{E}[CPI_{2020Q1}\mid\mathcal{Y}_{2019Q4}]>\exp(\mathbb{E}[\log(CPI_{2020Q1})\mid \mathcal{Y}_{2019Q4}])$$
+Thus this estimator is actually biased for the conditional mean  $\mathbb{E}[CPI_{2020Q1}\mid\mathscr{Y}_{2019Q4}]$:
+$$\mathbb{E}[CPI_{2020Q1}\mid\mathscr{Y}_{2019Q4}]>\exp(\mathbb{E}[\log(CPI_{2020Q1})\mid \mathscr{Y}_{2019Q4}])$$
 </blue>
 
 :::{.fragment}
 <green>
-Nevertheless, in practice, simply taking the exponential tends to work well in providing a good approximation.
+Nevertheless, in practice and [by research](https://www.sciencedirect.com/science/article/abs/pii/S0169207011000112), simply taking the exponential tends to work well in providing a good approximation. 
+So we will continue to take exponentials whenever required.
 </green>
 :::
 
-## Exercise 2  {auto-animate="true"}
-:::{.callout-question}
-It seems like if $Y_{t}$ has a linear trend then $\Delta Y_{t}$ does not. Explain why this is.
-:::
-<div style="height: 0.5em;"></div>
-:::{.callout-note}
-<blue>Recall from Exercise 1(d):</blue> ARIMA(1,1,3) with trend on $Y_{t}$ produced the same parameter estimates as ARMA(1,3) with drift on $\Delta Y_{t}$. Why is that?
-:::
-<div style="height: 0.5em;"></div>
+
+
+## Exercise 2 {auto-animate="true"}
+Consider a time series model consisting of a trend equation and AR(p) equation:
+\begin{align}
+Y_{t}&=X_{t}^{\top}\beta +Z_{t}\\
+Z_{t}&=\phi_{1}Z_{t-1}+\cdots+\phi_{p}Z_{t-p}+U_{t}
+\end{align}
+
+
 
 :::{.fragment}
-The `Arima` function is estimating the following set of equations:
-<div style="height: 0.5em;"></div>
-:::
+<purple>
+The ADF equation for this model is:
+$$\Delta Y_{t}=\varphi Y_{t-1}+X_{t}^{\top}\beta^{*}+\sum^{p-1}_{k=1}\psi_{k}\Delta Y_{t-k}+U_{t}$$
+</purple>
+i.e. a regression of $\Delta Y_{t}$ on
 
-::: {.incremental}
-- ARIMA(1,1,3) with drift and trend for $Y_{t}$:
-\begin{align*}
-Y_{t}&= \beta_{0}+\beta_{1}t+Z_{t}\\
-\Delta Z_{t}&=\phi_{1}\Delta Z_{t-1}+U_{t}+\theta_{t} U_{t-1}+\theta_{2}U_{t-2}+\theta_{3}U_{t-3}
-\end{align*}<div style="height: 0.5em;"></div>
+- $Y_{t-1}$: variable of interest for the ADF test;
+- $X_{t}$: same set of deterministic variables as specified in the original model
+- lags $1,\dots,p-1$ of $\Delta Y_{t}$ (i.e. one fewer lag than in the original model).
 
-- ARMA(1,3) with drift for $\Delta Y_{t}$:
-\begin{align*}
-\Delta Y_{t}&= \alpha+W_{t}\\
-W_{t}&=\phi_{1}W_{t-1}+U_{t}+\theta_{t} U_{t-1}+\theta_{2}U_{t-2}+\theta_{3}U_{t-3}
-\end{align*}
-
-:::
-
-:::{.fragment}
-If both gives the exact same estimates, then $\alpha=\beta_{1}$ and $W_{t}=\Delta Z_{t}$.
+Note the coefficients on $X_{t}$ in the original model ($\beta$) differ from those in the ADF test equation ($\beta^*$).
 :::
 
 
 ## Exercise 2 {auto-animate="true"}
+Consider a time series model consisting of a trend equation and AR(p) equation:
+\begin{align}
+Y_{t}&=X_{t}^{\top}\beta +Z_{t}\\
+Z_{t}&=\phi_{1}Z_{t-1}+\cdots+\phi_{p}Z_{t-p}+U_{t}
+\end{align}
+
+<purple>
+The ADF equation for this model is:
+$$\Delta Y_{t}=\varphi Y_{t-1}+X_{t}^{\top}\beta^{*}+\sum^{p-1}_{k=1}\psi_{k}\Delta Y_{t-k}+U_{t}$$
+</purple>
+
+Note the coefficients on $X_{t}$ in the original model ($\beta$) differ from those in the ADF test equation ($\beta^*$). [<teal>$\to$ How are these coefficients related?</teal>]{.fragment}
+<div style="height: 1em;"></div>
+
+:::{.fragment}
+
 :::{.callout-question}
-It seems like if $Y_{t}$ has a linear trend then $\Delta Y_{t}$ does not. Explain why this is.
-:::
-<div style="height: 0.5em;"></div>
-:::{.callout-note}
-<blue>Show that $\alpha=\beta_{1}$, $W_{t}=\Delta Z_{t}$ in the following equations:</blue>
-
-$$Y_{t}=\beta_{0}+\beta_{1}t+Z_{t}\qquad\qquad\Delta Y_{t}=\alpha+W_{t}$$
-:::
-<div style="height: 0.5em;"></div>
-
-:::{.fragment}
-Subtract $Y_{t-1}$ on both sides gives:
-
-$$Y_{t}\,\color{blue}{-\,Y_{t-1}}\color{black}{\,=(\beta_{0}+\beta_{1}t+Z_{t})}\color{blue}{\,-\,(\beta_{0}+\beta_{1}(t-1)+Z_{t-1})}$$
-:::
-
-:::{.fragment}
-Then simplify:
-\begin{align*}
-
-Y_{t}-Y_{t-1}&=\beta_{0}-\beta_{0}+\beta_{1}(t-(t-1))+Z_{t}-Z_{t-1}\\
-\Delta Y_{t}&=\beta_{1}+\Delta Z_{t}
-\end{align*}
-:::
-
-:::{.fragment}
-We have thereby shown that $\alpha=\beta_{1}$ and $W_{t}=\Delta Z_{t}$.
-<div style="height: 0.5em;"></div>
-:::
-
-:::{.fragment}
-<blue>In addition, we have shown that taking the first difference removes the linear trend.</blue>
+Let's work through an example of how a specific time series model can be rearranged into the ADF equation. Consider a model with intercept and linear trend, and 2 lags in the AR equation:
+\begin{align}
+Y_{t}&=\beta_{0}+\beta_{1} t+Z_{t}\\
+Z_{t}&=\phi_{1}Z_{t-1}+\phi_{2}Z_{t-2}+U_{t}
+\end{align}
 <blue>
-$$Y_{t}=\beta_{0}+\beta_{1}t+Z_{t}\quad\xrightarrow{\;\textsf{take first difference}\;}\quad \Delta Y_{t}=\beta_{1}+\Delta Z_{t}$$
+Goal: Rewrite these equations in the form of the ADF equation, derive $\beta_{0}^{*}$ and $\beta_{1}^{*}$:
+$$\Delta Y_{t}=\varphi Y_{t-1}+\beta_{0}^{*}+\beta_{1}^{*}t+\psi_{1}\Delta Y_{t-1}+U_{t}$$
 </blue>
 :::
+:::
 
+
+
+## Exercise 2 {auto-animate="true"}
+:::{.callout-question}
+Consider a model with intercept and linear trend, and 2 lags in the AR equation:
+\begin{align}
+Y_{t}&=\beta_{0}+\beta_{1} t+Z_{t}\\
+Z_{t}&=\phi_{1}Z_{t-1}+\phi_{2}Z_{t-2}+U_{t}
+\end{align}
+<blue>
+Goal: Rewrite these equations in the form of the ADF equation, derive $\beta_{0}^{*}$ and $\beta_{1}^{*}$:
+$$\Delta Y_{t}=\varphi Y_{t-1}+\beta_{0}^{*}+\beta_{1}^{*}t+\psi_{1}\Delta Y_{t-1}+U_{t}$$
+</blue>
+:::
+<div style="height: 0.5em;"></div>
+ 
+:::{.panel-tabset}
+## Step 1
+Re-express the autoregressive equation in the form
+$$\Delta Z_{t}=\varphi Z_{t-1}+\psi_{1}\Delta Z_{t-1}+U_{t}$$
+where $\varphi = \phi_{1}+\phi_{2}-1$ and $\psi_{1}=-\phi_{2}$.
+<div class="horizontal-line"></div>
+
+\begin{align}
+Z_{t}&=\phi_{1}Z_{t-1}+\phi_{2}Z_{t-2}+U_{t}\\
+Z_{t}&=\phi_{1}Z_{t-1}\textcolor{magenta}{+\phi_{2}Z_{t-1}-\phi_{2}Z_{t-1}}+\phi_{2}Z_{t-2}+U_{t}\\
+Z_{t}&=\textcolor{blue}{(\phi_{1}+\phi_{2})Z_{t-1}}\textcolor{green}{-\phi_{2}\Delta Z_{t-1}}+U_{t}\\
+Z_{t}\textcolor{red}{-Z_{t-1}}&=\textcolor{red}{-Z_{t-1}}+(\phi_{1}+\phi_{2})Z_{t-1}-\phi_{2}\Delta Z_{t-1}+U_{t}\\
+\Delta Z_{t}&=\varphi Z_{t-1}+\psi_{1}\Delta Z_{t-1}+U_{t}
+
+\end{align}
+where $\varphi=\phi_{1}+\phi_{2}-1$ and $\psi_{1}=-\phi_{2}$.
+
+## Step 2
+From Step 1 we have 
+$$\textcolor{red}{\Delta Z_{t}}=\varphi \textcolor{blue}{Z_{t-1}}+\psi_{1}\textcolor{magenta}{\Delta Z_{t-1}}+U_{t}.$$
+Using the trend equation $Y_{t}=\beta_{0}+\beta_{1}t+Z_{t}$, derive the following:
+\begin{align}
+\textcolor{red}{\Delta Z_{t}}\;&\textcolor{red}{=\Delta Y_{t}-\beta_{1}}\\
+\textcolor{magenta}{\Delta Z_{t-1}}\;&\textcolor{magenta}{=\Delta Y_{t-1}-\beta_{1}}\\
+\textcolor{blue}{Z_{t-1}}\;&\textcolor{blue}{=Y_{t-1}-\beta_{0}-\beta_{1}(t-1)}
+\end{align}
+substituting gives $(\textcolor{red}{\Delta Y_{t}-\beta_{1}})=\varphi(\textcolor{blue}{Y_{t-1}-\beta_{0}-\beta_{1}(t-1)})+\psi_{1}(\textcolor{magenta}{\Delta Y_{t-1}-\beta_{1}})+U_{t}$
+
+## Step 2 Derivations
+
+- Starting from the trend equation $Y_{t}=\beta_{0}+\beta_{1}t+Z_{t}$, the first lag is:
+\begin{align}
+Y_{t-1}&=\beta_{0}+\beta_{1}(t-1)+Z_{t-1}\quad\quad\quad (1)\\
+\implies \textcolor{blue}{Z_{t-1}}\;&\textcolor{blue}{=Y_{t-1}-\beta_{0}-\beta_{1}(t-1)}
+\end{align}
+- Using equation (1) and the trend equation, we thus know that:
+\begin{align}
+&&Y_{t}-Y_{t-1}&=(\beta_{0}-\beta_{0})+\beta_{1}(t-(t-1))+Z_{t}-Z_{t-1}\\
+&&\Delta Y_{t}&=\beta_{1}+\Delta {Z_{t}}\\
+\implies&& \textcolor{red}{\Delta Z_{t}}\;&\textcolor{red}{=\Delta Y_{t}-\beta_{1}}\\
+\implies&& \textcolor{magenta}{\Delta Z_{t-1}}\;&\textcolor{magenta}{=\Delta Y_{t-1}-\beta_{1}}
+\end{align}
+
+
+## Step 3
+From Step 2 we have:
+$$(\textcolor{red}{\Delta Y_{t}-\beta_{1}})=\varphi(\textcolor{blue}{Y_{t-1}-\beta_{0}-\beta_{1}(t-1)})+\psi_{1}(\textcolor{magenta}{\Delta Y_{t-1}-\beta_{1}})+U_{t}$$
+Simplify this to the form of ADF test equation: 
+$$\Delta Y_{t}=\varphi Y_{t-1}+\textcolor{green}{\beta_{0}^{*}}+\textcolor{teal}{\beta_{1}^{*}}t+\psi_{1}\Delta Y_{t-1}+U_{t}$$
+where $\textcolor{green}{\beta_{0}^{*}=\beta_{1}-\varphi\beta_{0}+\varphi\beta_{1}-\psi_{1}\beta_{1}}$ and $\textcolor{teal}{\beta_{1}^{*}=-\varphi\beta_{1}}$.
+
+## Step 3 Algebra
+\begin{align}
+(\Delta Y_{t}-\beta_{1})&=\varphi(Y_{t-1}-\beta_{0}-\beta_{1}(t-1))+\psi_{1}(\Delta Y_{t-1}-\beta_{1})+U_{t}\\
+\Delta Y_{t}&=\beta_{1}+\varphi Y_{t-1}-\varphi\beta_{0}-\varphi\beta_{1} t+\varphi\beta_{1}+\psi_{1}\Delta Y_{t-1}-\psi_{1}\beta_{1}+U_{t}\\
+\Delta Y_{t}&=\varphi Y_{t-1}+\beta_{1}-\varphi\beta_{0}+\varphi\beta_{1}-\psi_{1}\beta_{1}-\varphi\beta_{1}t+\psi_{1}\Delta Y_{t-1}+U_{t}\\
+\Delta Y_{t}&=\varphi Y_{t-1}+\textcolor{green}{\underbrace{(\beta_{1}-\varphi\beta_{0}+\varphi\beta_{1}-\psi_{1}\beta_{1})}_{\equiv\beta_{0}^{*}}}+\textcolor{teal}{\underbrace{(-\varphi\beta_{1})}_{\equiv\beta_{1}^{*}}}t+\psi_{1}\Delta Y_{t-1}+U_{t}\\
+\Delta Y_{t}&=\varphi Y_{t-1}+\textcolor{green}{\beta_{0}^{*}}+\textcolor{teal}{\beta_{1}^{*}}t+\psi_{1}\Delta Y_{t-1}+U_{t}
+\end{align}
+where $\textcolor{green}{\beta_{0}^{*}=\beta_{1}-\varphi\beta_{0}+\varphi\beta_{1}-\psi_{1}\beta_{1}}$ and $\textcolor{teal}{\beta_{1}^{*}=-\varphi\beta_{1}}$.
+
+## Discussion
+- This derivation is intended to show how the ADF test equation follows from a time series model, including:
+  - how the lag length is reduced by one, and
+  - how the deterministic coefficients differ between the trend equation and ADF test equation.
+
+- Having seen this once, the details become practically unimportant thereafter.
+  - The values of the deterministic coefficients in the ADF test regression are not directly interesting in themselves.
+
+- The important thing is the specification of an appropriate ADF test equation from a time series model if it has already been specified.
+
+:::
 
 ## {data-background-color="#000F46"}
 <div style="height: 85vh; display: flex; align-items: center; justify-content: center; color: white; font-size: 2em;">

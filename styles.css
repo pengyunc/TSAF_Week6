@@ -182,8 +182,8 @@ oblue {
 
 .horizontal-line {
     border-bottom: 1px solid #ccc; /* Customize color and thickness */
-    margin-top: 1em;
-    margin-bottom: 1em;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
   }
 
 .my-list li {
