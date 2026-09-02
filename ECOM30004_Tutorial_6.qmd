@@ -272,7 +272,7 @@ Specify and estimate an appropriate ARIMA($p,d,q$) model for $Y_{t}$.
 - For each $(p,q)$ combination:
   - Fit the ARIMA($p,1,q$) model with `Arima()` function, and extract AICc
   
-  - Extract the Ljung-Box $p$-values with `checkresiduals()` function
+  - Extract the Ljung-Box $p$-values with `Box.test()` function
   
 - Choose the model with the **lowest** AICc, and verify that its <teal>Ljung-Box $H_{0}$ (no autocorrelation)</teal> is not rejected.
 
@@ -318,7 +318,7 @@ Specify and estimate an appropriate ARIMA($p,d,q$) model for $Y_{t}$.
 :::
 <div style="height: 0.5em;"></div>
 
-Residual autocorrelation result (`=0` if $H_{0}$ maintained)
+Residual autocorrelation result (`TRUE` if $H_{0}$ maintained)
 ```{r}
 print(LBp<0.05)
 ```
@@ -360,7 +360,7 @@ In equation form, this estimated model can be written as:
 \widehat{\Delta Z}_{t}&=0.8316\widehat{\Delta Z}_{t-1}+\widehat{U}_{t}-0.6377\widehat{U}_{t-1}+0.2380\widehat{U}_{t-2}+0.1276\widehat{U}_{t-3}
 \end{align}
 
-The intercept of the model, $\widehat{\beta}_{1}=0.0120$, implies the estimated mean rate of inflation is $0.0120$, or $1.2\%$ per quarter (this is a qurterly time series).
+The intercept of the model, $\widehat{\beta}_{1}=0.0120$, implies the estimated mean rate of inflation is $0.0120$, or $1.2\%$ per quarter (this is a quarterly time series).
 
 ## ARIMA(1,1,3) on $Y_{t}$
 The same model may be estimated as an ARIMA($1,1,3$) model for $Y_{t}$:
@@ -545,7 +545,7 @@ print(round(eq_b$coef,4))
 ::: {style="position: absolute; left: 39%; top: 42%; width: 110px; height: 70px; border: 3px solid purple; background: transparent; box-sizing: border-box;"}
 :::
 ::: {style="position: absolute; left: 48.5%; top: 42%; width: 110px; height: 70px; border: 0px solid teal; background: transparent; box-sizing: border-box;"}
-<purple>$\beta_{1}$</purple>
+<purple>$\hat{\beta}_{1}$</purple>
 :::
 
 :::{.fragment}
@@ -560,7 +560,7 @@ print(round(eq_c$coef,4))
 ::: {style="position: absolute; left: 39%; top: 71%; width: 110px; height: 70px; border: 3px solid teal; background: transparent; box-sizing: border-box;"}
 :::
 ::: {style="position: absolute; left: 48.5%; top: 71%; width: 110px; height: 70px; border: 0px solid teal; background: transparent; box-sizing: border-box;"}
-<teal>$\beta_{1}^*$</teal>
+<teal>$\hat{\beta_{1}^*}$</teal>
 :::
 :::
 
@@ -570,12 +570,12 @@ print(round(eq_c$coef,4))
 print(eq_c$coef["xreg"]/eq_b$coef["drift"])   # beta1*/beta1
 ```
 ::: {style="position: absolute; left: 15%; top: 86%; width: 110px; height: 70px; border: 0px solid teal; background: transparent; box-sizing: border-box;"}
-$\textcolor{teal}{\beta_{1}^*}/\textcolor{purple}{\beta_{1}}$
+$\textcolor{teal}{\hat{\beta_{1}^*}}/\textcolor{purple}{\hat{\beta_{1}}}$
 :::
 :::
 
 :::{.fragment}
-<blue>**Bottom Line: **We may model the linear trend in terms of observation date or observation index, according to which is more convenient, and the resulting model will be equivalent either way.</blue>
+<blue>We may model the linear trend in terms of observation date or observation index, according to which is more convenient, and the resulting model will be equivalent either way.</blue>
 :::
 
 
@@ -628,7 +628,7 @@ ForecastInflation_2020q1 <- forecast(eq_a, h=1)$mean
 print(round(ForecastInflation_2020q1, 4))
 ```
 ::: {style="position: absolute; left: 20%; top: 40%; width: 110px; height: 70px; border: 0px solid teal; background: transparent; box-sizing: border-box;"}
-<purple>$\widehat{\mathbb{E}}(\Delta Y_{n+1}\mid\mathscr{Y}_{n})$</purple>
+<purple>$\widehat{\mathbb{E}}(\Delta Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})$</purple>
 :::
 <div class="horizontal-line"></div>
 Forecast 2020Q1 $\log(CPI_{2020Q1})\equiv Y_{2020Q1}$:
@@ -638,7 +638,7 @@ Forecast 2020Q1 $\log(CPI_{2020Q1})\equiv Y_{2020Q1}$:
 - On both sides take the conditional expectation based on data up to and including 2019Q4 ($\mathscr{Y}_{2019Q4}$):
 $$\mathbb{E}(\Delta Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})=\mathbb{E}(Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})-\mathbb{E}(Y_{2019Q4}\mid\mathscr{Y}_{2019Q4})$$
 - Since $Y_{2019Q4}\in\mathscr{Y}_{2019Q4}$, $\mathbb{E}(Y_{2019Q4}\mid\mathscr{Y}_{2019Q4})=Y_{2019Q4}$, thus adding hats gives:
-$$\widehat{\mathbb{E}}(Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})=Y_{2019Q4}+\textcolor{purple}{\widehat{\mathbb{E}}(\Delta Y_{n+1}\mid\mathscr{Y}_{n})}$$
+$$\widehat{\mathbb{E}}(Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})=Y_{2019Q4}+\textcolor{purple}{\widehat{\mathbb{E}}(\Delta Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})}$$
 :::
 
 ## Exercise 1(e)  {auto-animate="true"}
@@ -658,11 +658,11 @@ ForecastInflation_2020q1 <- forecast(eq_a, h=1)$mean
 print(round(ForecastInflation_2020q1, 4))
 ```
 ::: {style="position: absolute; left: 20%; top: 40%; width: 110px; height: 70px; border: 0px solid teal; background: transparent; box-sizing: border-box;"}
-<purple>$\widehat{\mathbb{E}}(\Delta Y_{n+1}\mid\mathscr{Y}_{n})$</purple>
+<purple>$\widehat{\mathbb{E}}(\Delta Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})$</purple>
 :::
 <div class="horizontal-line"></div>
 Forecast 2020Q1 $\log(CPI_{2020Q1})\equiv Y_{2020Q1}$:
-$$\widehat{\mathbb{E}}(Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})=Y_{2019Q4}+\textcolor{purple}{\widehat{\mathbb{E}}(\Delta Y_{n+1}\mid\mathscr{Y}_{n})}$$
+$$\widehat{\mathbb{E}}(Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})=Y_{2019Q4}+\textcolor{purple}{\widehat{\mathbb{E}}(\Delta Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})}$$
 ```{r}
 Forecast_logCPI_2020q1 <- ForecastInflation_2020q1 + Y[length(Y)]
 print(round(Forecast_logCPI_2020q1,4))
@@ -685,7 +685,7 @@ Forecast 2020Q1 $\log(CPI_{2020Q1})\equiv Y_{2020Q1}$:
 
 ## `eq_a`
 First forecast $\widehat{\mathbb{E}}(\Delta Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})$, then obtain $\widehat{\mathbb{E}}(\log(CPI_{2020Q1})\mid\mathscr{Y}_{2019Q4})$ using the following relationship:
-$$\widehat{\mathbb{E}}(Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})=Y_{2019Q4}+\widehat{\mathbb{E}}(\Delta Y_{n+1}\mid\mathscr{Y}_{n})$$
+$$\widehat{\mathbb{E}}(Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})=Y_{2019Q4}+\widehat{\mathbb{E}}(\Delta Y_{2020Q1}\mid\mathscr{Y}_{2019Q4})$$
 ```{r}
 # Recall: eq_a <- Arima(DY, order = c(1,0,3))
 ForecastInflation_2020q1 <- forecast(eq_a, h=1)$mean
@@ -697,7 +697,7 @@ print(round(Forecast_logCPI_2020q1,4))
 ## Alternative - `eq_b`
 As an alternative, we could directly forecast `Y` with `eq_b` as previously defined:
 ```{r}
-# Recall: eq_a <- Arima(DY, order = c(1,0,3))
+# Recall: eq_b <- Arima(Y, order = c(1, 1, 3), include.drift = TRUE)
 Forecast_logCPI_2020q1 <- forecast(eq_b, h=1)$mean
 print(round(Forecast_logCPI_2020q1,4))
 ```
