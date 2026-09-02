@@ -9,7 +9,7 @@
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-37eea08aefeeee20ff55810ff984fec1.css" rel="stylesheet" id="quarto-text-highlighting-styles"><meta charset="utf-8">
   <meta name="generator" content="quarto-1.7.32">
 
-  <title>quarto-inputf096b9dd6eb7988d</title>
+  <title>quarto-inputa61860e8afb3c6c8</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
@@ -632,7 +632,7 @@ phi1  6.47  4.61  3.79</code></pre>
 <li><p>For each <span class="math inline">\((p,q)\)</span> combination:</p>
 <ul>
 <li><p>Fit the ARIMA(<span class="math inline">\(p,1,q\)</span>) model with <code>Arima()</code> function, and extract AICc</p></li>
-<li><p>Extract the Ljung-Box <span class="math inline">\(p\)</span>-values with <code>checkresiduals()</code> function</p></li>
+<li><p>Extract the Ljung-Box <span class="math inline">\(p\)</span>-values with <code>Box.test()</code> function</p></li>
 </ul></li>
 <li><p>Choose the model with the <strong>lowest</strong> AICc, and verify that its <teal>Ljung-Box <span class="math inline">\(H_{0}\)</span> (no autocorrelation)</teal> is not rejected.</p></li>
 </ul>
@@ -691,7 +691,7 @@ phi1  6.47  4.61  3.79</code></pre>
 <div style="height: 0.5em;">
 
 </div>
-<p>Residual autocorrelation result (<code>=0</code> if <span class="math inline">\(H_{0}\)</span> maintained)</p>
+<p>Residual autocorrelation result (<code>TRUE</code> if <span class="math inline">\(H_{0}\)</span> maintained)</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb20"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a></a><span class="fu">print</span>(LBp<span class="sc">&lt;</span><span class="fl">0.05</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -755,7 +755,7 @@ p=4 FALSE FALSE FALSE FALSE FALSE</code></pre>
 \Delta Y_{t}&amp;=0.0120 +\widehat{\Delta Z}_{t}\\
 \widehat{\Delta Z}_{t}&amp;=0.8316\widehat{\Delta Z}_{t-1}+\widehat{U}_{t}-0.6377\widehat{U}_{t-1}+0.2380\widehat{U}_{t-2}+0.1276\widehat{U}_{t-3}
 \end{align}\]</span></p>
-<p>The intercept of the model, <span class="math inline">\(\widehat{\beta}_{1}=0.0120\)</span>, implies the estimated mean rate of inflation is <span class="math inline">\(0.0120\)</span>, or <span class="math inline">\(1.2\%\)</span> per quarter (this is a qurterly time series).</p>
+<p>The intercept of the model, <span class="math inline">\(\widehat{\beta}_{1}=0.0120\)</span>, implies the estimated mean rate of inflation is <span class="math inline">\(0.0120\)</span>, or <span class="math inline">\(1.2\%\)</span> per quarter (this is a quarterly time series).</p>
 </div>
 <div id="tabset-2-2">
 <p>The same model may be estimated as an ARIMA(<span class="math inline">\(1,1,3\)</span>) model for <span class="math inline">\(Y_{t}\)</span>:</p>
