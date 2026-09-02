@@ -9,7 +9,7 @@
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-37eea08aefeeee20ff55810ff984fec1.css" rel="stylesheet" id="quarto-text-highlighting-styles"><meta charset="utf-8">
   <meta name="generator" content="quarto-1.7.32">
 
-  <title>quarto-inputa61860e8afb3c6c8</title>
+  <title>quarto-input4a0a48e5732bca34</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
@@ -1208,7 +1208,7 @@ Forecast 2020Q1 <span class="math inline">\(\log(CPI_{2020Q1})\equiv Y_{2020Q1}\
 <div id="tabset-3-2">
 <p>As an alternative, we could directly forecast <code>Y</code> with <code>eq_b</code> as previously defined:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a></a><span class="co"># Recall: eq_a &lt;- Arima(DY, order = c(1,0,3))</span></span>
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a></a><span class="co"># Recall: eq_b &lt;- Arima(Y, order = c(1, 1, 3), include.drift = TRUE)</span></span>
 <span id="cb54-2"><a></a>Forecast_logCPI_2020q1 <span class="ot">&lt;-</span> <span class="fu">forecast</span>(eq_b, <span class="at">h=</span><span class="dv">1</span>)<span class="sc">$</span>mean</span>
 <span id="cb54-3"><a></a><span class="fu">print</span>(<span class="fu">round</span>(Forecast_logCPI_2020q1,<span class="dv">4</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
